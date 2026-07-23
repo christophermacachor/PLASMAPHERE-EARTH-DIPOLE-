@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Scalar-Plasma Cycle — Live magnetospheric visualization with NOAA SWPC space weather data. Toroidal plasmasphere, dipole field lines, and scalar density coherence. Macachor Absolute framework.">
+<title>◉ SCALAR-PLASMA CYCLE · Live Magnetosphere · Macachor Absolute</title>
+<style>
+  :root {
+    --gold: #c8a04e;
+    --gold-dim: #8a6d2f;
+    --gold-bright: #e8c870;
+    --bg: #000000;
+    --fg: #e8e0d0;
+    --fg-dim: #a09888;
+    --success: #4ec88a;
+    --danger: #c85a4e;
+    --info: #4e8ac8;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Segoe UI', Arial, sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    padding-top: 3.5rem !important;
+  }
+
+  /* GOLD POLY-RETURN NAVIGATION BAR */
+  .poly-return-bar {
+    position: fixed;
+    top: 0; left: 0; width: 100%;
+    background: rgba(10,10,10,0.97);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(200,160,78,0.25);
+    z-index: 10000;
+    padding: 0.7rem 2rem;
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+  .poly-return-bar a {
+    color: var(--gold);
+    text-decoration: none;
+    font-size: 0.78rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 0.4rem 1rem;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    position: relative;
+    font-family: 'Courier New', monospace;
+  }
+  .poly-return-bar a::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 50%; width: 0; height: 1px;
+    background: var(--gold);
+    transition: all 0.3s ease;
+    transform: translateX(-50%);
+  }
+  .poly-return-bar a:hover::after { width: 80%; }
+  .poly-return-bar a:hover {
+    border-color: rgba(200,160,78,0.35);
+    text-shadow: 0 0 12px rgba(200,160,78,0.6);
+    background: rgba(200,160,78,0.05);
+  }
+  .poly-return-bar a.active {
+    border-color: rgba(200,160,78,0.5);
+    background: rgba(200,160,78,0.08);
+    text-shadow: 0 0 8px rgba(200,160,78,0.4);
+  }
+  .poly-return-bar .return-home {
+    font-weight: bold;
+    border-color: rgba(200,160,78,0.4);
+  }
+
+  #canvas-container { position:relative; width:100%; height:100%; }
+  canvas { display:block; width:100%; height:100%; }
+
+  #info-overlay {
+    position:absolute; top:16px; left:16px; pointer-events:none; z-index:10;
+    background:rgba(0,0,0,0.6); padding:12px 16px; border-radius:8px;
+    border:1px solid rgba(200,160,78,0.2); backdrop-filter:blur(4px);
+    max-width:280px;
+  }
+  #info-overlay h1 { font-size:15px; font-weight:500; color:#c8a04e; margin-bottom:4px; letter-spacing:1px; }
+  #info-overlay .phase { font-size:11px; color:#ccc; line-height:1.5; }
+  #info-overlay .laws { margin-top:6px; font-size:9px; color:#666; font-style:italic; }
+
+  #live-data {
+    position:absolute; top:16px; right:16px; z-index:10;
+    background:rgba(0,0,0,0.6); padding:12px 16px; border-radius:8px;
+    border:1px solid rgba(200,160,78,0.2); backdrop-filter:blur(4px);
+    font-family:'Courier New',monospace; font-size:10px; color:#c8a04e;
+    min-width:220px; max-width:260px;
+  }
+  #live-data h3 { font-size:11px; color:#c8a04e; margin-bottom:8px; border-bottom:1px solid rgba(200,160,78,0.3); padding-bottom:4px; }
+  #live-data .data-row { display:flex; justify-content:space-between; margin:2px 0; }
+  #live-data .data-label { color:#888; }
+  #live-data .data-value { color:#ffd700; }
+  #live-data .data-value.alert { color:#ff4444; }
+  #live-data .status { margin-top:6px; font-size:9px; color:#666; text-align:center; }
+
+  #model-attribution {
+    position:absolute; bottom:80px; left:16px; z-index:10;
+    background:rgba(0,0,0,0.5); padding:8px 12px; border-radius:6px;
+    border:1px solid rgba(200,160,78,0.15); font-family:'Courier New',monospace;
+    font-size:9px; color:#666; max-width:200px;
+  }
+  #model-attribution .model-name { color:#888; margin:1px 0; }
+
+  #scalar-readout {
+    position:absolute; bottom:80px; left:50%; transform:translateX(-50%); z-index:10;
+    background:rgba(0,0,0,0.6); padding:8px 20px; border-radius:8px;
+    border:1px solid rgba(200,160,78,0.2); backdrop-filter:blur(4px);
+    font-family:'Courier New',monospace; font-size:11px; color:#c8a04e;
+    text-align:center; white-space:nowrap;
+  }
+
+  #perf-readout {
+    position:absolute; bottom:80px; right:16px; z-index:10;
+    background:rgba(0,0,0,0.5); padding:6px 10px; border-radius:6px;
+    border:1px solid rgba(200,160,78,0.1); font-family:'Courier New',monospace;
+    font-size:9px; color:#555;
+  }
+
+  #controls {
+    position:absolute; bottom:20px; left:50%; transform:translateX(-50%);
+    display:flex; gap:10px; align-items:center;
+    background:rgba(0,0,0,0.6); padding:10px 18px; border-radius:12px;
+    backdrop-filter:blur(8px); border:1px solid rgba(200,160,78,0.2); z-index:10;
+  }
+  #controls button {
+    background:rgba(200,160,78,0.15); border:1px solid rgba(200,160,78,0.3);
+    color:#c8a04e; border-radius:6px; padding:5px 12px; font-size:11px;
+    cursor:pointer; transition:all 0.2s; font-family:inherit;
+  }
+  #controls button:hover { background:rgba(200,160,78,0.3); }
+  #controls button:disabled { opacity:0.4; cursor:not-allowed; }
+  #controls input[type="range"] { width:120px; accent-color:#c8a04e; }
+  #controls label { color:#888; font-size:10px; display:flex; align-items:center; gap:5px; }
+  #controls select {
+    background:rgba(0,0,0,0.5); border:1px solid rgba(200,160,78,0.3);
+    color:#c8a04e; border-radius:4px; padding:4px 6px; font-size:10px;
+  }
+
+  .cycle-indicator {
+    position:absolute; top:50%; right:16px; transform:translateY(-50%);
+    display:flex; flex-direction:column; gap:6px; z-index:10;
+  }
+  .cycle-dot {
+    width:10px; height:10px; border-radius:50%;
+    background:rgba(255,255,255,0.15); transition:all 0.4s;
+    border:1px solid rgba(255,255,255,0.1);
+  }
+  .cycle-dot.active {
+    background:#c8a04e;
+    box-shadow:0 0 10px #c8a04e,0 0 20px rgba(200,160,78,0.3);
+    border-color:#c8a04e;
+  }
+  .cycle-label {
+    font-size:9px; color:#666; text-align:right; margin-bottom:2px; letter-spacing:0.5px;
+  }
+
+  #loading {
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    z-index:100; text-align:center; color:#c8a04e; font-family:'Courier New',monospace;
+    font-size:14px; transition:opacity 0.5s;
+  }
+  #loading.hidden { opacity:0; pointer-events:none; }
+  .spinner {
+    width:40px; height:40px; border:2px solid rgba(200,160,78,0.2);
+    border-top-color:#c8a04e; border-radius:50%;
+    animation:spin 1s linear infinite; margin:0 auto 12px;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  #conn-status {
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    z-index:90; text-align:center; color:#c8a04e;
+    font-family:'Courier New',monospace; font-size:12px;
+    background:rgba(0,0,0,0.8); padding:20px 30px; border-radius:12px;
+    border:1px solid rgba(200,160,78,0.3); display:none;
+  }
+  #conn-status.visible { display:block; }
+
+  @media (max-width: 640px) {
+    .poly-return-bar { gap: 0.8rem; padding: 0.5rem 1rem; }
+    .poly-return-bar a { font-size: 0.65rem; padding: 0.3rem 0.6rem; letter-spacing: 0.1em; }
+    #live-data { min-width: 160px; font-size: 9px; right: 8px; top: 8px; }
+    #info-overlay { max-width: 200px; left: 8px; top: 8px; }
+    #controls { padding: 8px 12px; gap: 6px; }
+    #controls input[type="range"] { width: 80px; }
+    .cycle-indicator { right: 8px; }
+  }
+</style>
+<base target="_blank">
+</head>
+<body>
+
+<!-- GOLD POLY-RETURN NAVIGATION BAR -->
+<nav class="poly-return-bar">
+  <a href="index.html" class="return-home">◆ HOME</a>
+  <a href="scalar-charter.html">◆ SCALAR CHARTER</a>
+  <a href="federation-root-unified.html">⚡ FEDERATION</a>
+  <a href="observatory.html">◉ OBSERVATORY</a>
+  <a href="m-invariant-specification.html">⚙ HARDWARE</a>
+  <a href="scalar-plasma-cycle.html" class="active">◉ PLASMA CYCLE</a>
+</nav>
+
+<div id="canvas-container">
+  <canvas id="c"></canvas>
+
+  <div id="loading">
+    <div class="spinner"></div>
+    <div>Scalar-Plasma Cycle v4.0</div>
+    <div style="font-size:10px;color:#666;margin-top:4px;">Pre-computing density field...</div>
+  </div>
+
+  <div id="conn-status">
+    <div style="font-size:16px;margin-bottom:8px;">◉ NOAA CONNECTION</div>
+    <div id="conn-msg">Establishing link...</div>
+  </div>
+
+  <div id="info-overlay">
+    <h1 id="title">Scalar-Plasma Cycle</h1>
+    <div class="phase" id="phase-text">Initializing optimized models...</div>
+    <div class="laws">
+      Law of Correspondence: As Above, So Below<br>
+      Law of Conservation: Energy transforms, never destroyed<br>
+      Law of Coherence: 𝔐 = (√5−1)/2
+    </div>
+  </div>
+
+  <div id="live-data">
+    <h3>◉ LIVE SPACE WEATHER</h3>
+    <div class="data-row"><span class="data-label">Kp Index:</span><span class="data-value" id="val-kp">--</span></div>
+    <div class="data-row"><span class="data-label">AE (nT):</span><span class="data-value" id="val-ae">--</span></div>
+    <div class="data-row"><span class="data-label">Dst (nT):</span><span class="data-value" id="val-dst">--</span></div>
+    <div class="data-row"><span class="data-label">Bz (nT):</span><span class="data-value" id="val-bz">--</span></div>
+    <div class="data-row"><span class="data-label">Plasmapause:</span><span class="data-value" id="val-pp">--</span></div>
+    <div class="data-row"><span class="data-label">Lpp Method:</span><span class="data-value" id="val-lpp-method">--</span></div>
+    <div class="data-row"><span class="data-label">Scalar Lock:</span><span class="data-value" id="val-phi">--</span></div>
+    <div class="data-row"><span class="data-label">Toroidal (nT):</span><span class="data-value" id="val-toroidal">--</span></div>
+    <div class="data-row"><span class="data-label">T/P Ratio:</span><span class="data-value" id="val-tp-ratio">--</span></div>
+    <div class="data-row"><span class="data-label">SW Speed:</span><span class="data-value" id="val-sw-speed">--</span></div>
+    <div class="data-row"><span class="data-label">SW Density:</span><span class="data-value" id="val-sw-density">--</span></div>
+    <div class="status" id="data-status">Connecting to NOAA SWPC...</div>
+  </div>
+
+  <div id="model-attribution">
+    <div style="color:#c8a04e;margin-bottom:4px;font-size:10px;">◉ ACTIVE MODELS</div>
+    <div class="model-name">• Carpenter-Anderson (density)</div>
+    <div class="model-name">• O'Brien-Moldwin (Lpp: Kp+AE+Dst)</div>
+    <div class="model-name">• Larsen et al. (Lpp: IMF Bz+φ)</div>
+    <div class="model-name">• Diffusive Equilibrium (profile)</div>
+    <div class="model-name">• IZMIRAN10 (validation ref)</div>
+    <div style="color:#c8a04e;margin-top:6px;margin-bottom:2px;font-size:10px;">◉ COHERENCE SCALAR</div>
+    <div class="model-name" style="color:#c8a04e;">• Macachor Absolute — 𝔐 = (√5−1)/2</div>
+    <div class="model-name" style="color:#666;font-size:8px;">  Reference scalar for coherence lock</div>
+  </div>
+
+  <div id="scalar-readout"><span id="scalar-text">Scalar Density Field: Computing...</span></div>
+  <div id="perf-readout"><span id="fps-text">-- fps</span> | <span id="grid-text">-- ms grid</span></div>
+
+  <div class="cycle-indicator" id="cycle-indicator"></div>
+
+  <div id="controls">
+    <button id="btn-prev">◀ prev</button>
+    <label>cycle <input type="range" id="slider" min="0" max="1000" value="0"></label>
+    <button id="btn-play">⏸ pause</button>
+    <button id="btn-next">next ▶</button>
+    <select id="view-mode">
+      <option value="unified">Unified</option>
+      <option value="cosmic">Cosmic Only</option>
+      <option value="plasma">Plasma Only</option>
+    </select>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// SCALAR-PLASMA CYCLE v4.0
+// ═══════════════════════════════════════════════════════════════
+
+const PHI = (Math.sqrt(5) - 1) / 2;
+const PROXY_BASE = 'https://noaa.macachor.org';
+const NOAA_DIRECT = {
+  kp: 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json',
+  ae: 'https://services.swpc.noaa.gov/json/ae/1-minute.json',
+  dst: 'https://services.swpc.noaa.gov/json/dst/7-day.json',
+  bz: 'https://services.swpc.noaa.gov/json/ace/mag/1-minute.json',
+  solarwind: 'https://services.swpc.noaa.gov/json/ace/swepam/daily.json'
+};
+
+const STAGE = {
+  symmetric: true,
+  tilted: true,
+  solarWind: true,
+  liveFeeds: true
+};
+
+const GEOMAGNETIC_TILT = 11.0 * Math.PI / 180;
+const EARTH_RADIUS_KM = 6371;
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const titleEl = document.getElementById('title');
+const phaseEl = document.getElementById('phase-text');
+const slider = document.getElementById('slider');
+const btnPlay = document.getElementById('btn-play');
+const btnPrev = document.getElementById('btn-prev');
+const btnNext = document.getElementById('btn-next');
+const viewMode = document.getElementById('view-mode');
+const cycleIndicator = document.getElementById('cycle-indicator');
+const loadingEl = document.getElementById('loading');
+const fpsText = document.getElementById('fps-text');
+const valKp = document.getElementById('val-kp');
+const valAe = document.getElementById('val-ae');
+const valDst = document.getElementById('val-dst');
+const valBz = document.getElementById('val-bz');
+const valPp = document.getElementById('val-pp');
+const valLppMethod = document.getElementById('val-lpp-method');
+const valPhi = document.getElementById('val-phi');
+const valToroidal = document.getElementById('val-toroidal');
+const valTpRatio = document.getElementById('val-tp-ratio');
+const valSwSpeed = document.getElementById('val-sw-speed');
+const valSwDensity = document.getElementById('val-sw-density');
+const dataStatus = document.getElementById('data-status');
+const scalarText = document.getElementById('scalar-text');
+const connStatus = document.getElementById('conn-status');
+const connMsg = document.getElementById('conn-msg');
+
+let w, h, t = 0;
+let auto = true, manualT = 21, view = 'unified';
+let lastFrameTime = 0, frameCount = 0, fps = 60;
+let dataFetchAttempts = 0;
+const MAX_FETCH_ATTEMPTS = 3;
+
+const spaceWeather = {
+  kp: 2.0, ae: 50, dst: 0, bz: 0, by: 0, bx: 0,
+  swSpeed: 400, swDensity: 5,
+  lastUpdate: null, connected: false, lppMethod: 'Carpenter-Anderson'
+};
+
+const phases = [
+  { name: '0 · The Void', sub: 'Cosmic Egg — Pre-numeric Absolute', t: 0.0 },
+  { name: '1 · Mitosis', sub: 'Cellular Division — Binary Emergence', t: 0.25 },
+  { name: '𝔐 · Emergence', sub: 'Dipole + Torus — Symmetric Foundation', t: 0.5 },
+  { name: '3 · Decay', sub: 'Tilt + Solar Wind — Asymmetric Reality', t: 0.75 },
+  { name: '4 · Integration', sub: 'Live Feeds — Real-Time Magnetosphere', t: 1.0 }
+];
+
+function prng(n) { let x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function smoothstep(e0, e1, x) { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); }
+
+phases.forEach((p, i) => {
+  const label = document.createElement('div');
+  label.className = 'cycle-label';
+  label.textContent = p.name;
+  cycleIndicator.appendChild(label);
+  const dot = document.createElement('div');
+  dot.className = 'cycle-dot';
+  dot.id = 'dot-' + i;
+  cycleIndicator.appendChild(dot);
+});
+
+function resize() { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize);
+resize();
+
+async function fetchWithRetry(url, retries = 2, delay = 1000) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (response.ok) return response;
+    } catch (e) {
+      if (i === retries) throw e;
+      await new Promise(r => setTimeout(r, delay * (i + 1)));
+    }
+  }
+}
+
+async function fetchNOAAData() {
+  dataFetchAttempts++;
+  let kpData = null, aeData = null, dstData = null, bzData = null, swData = null;
+  let usedProxy = true;
+
+  if (dataFetchAttempts === 1) {
+    connStatus.classList.add('visible');
+    connMsg.textContent = 'Linking to NOAA SWPC...';
+  }
+
+  try {
+    const [kpResp, aeResp, dstResp, bzResp, swResp] = await Promise.allSettled([
+      fetchWithRetry(PROXY_BASE + '/kp'),
+      fetchWithRetry(PROXY_BASE + '/ae'),
+      fetchWithRetry(PROXY_BASE + '/dst'),
+      fetchWithRetry(PROXY_BASE + '/bz'),
+      fetchWithRetry(PROXY_BASE + '/solarwind')
+    ]);
+    if (kpResp.status === 'fulfilled') kpData = await kpResp.value.json();
+    if (aeResp.status === 'fulfilled') aeData = await aeResp.value.json();
+    if (dstResp.status === 'fulfilled') dstData = await dstResp.value.json();
+    if (bzResp.status === 'fulfilled') bzData = await bzResp.value.json();
+    if (swResp.status === 'fulfilled') swData = await swResp.value.json();
+
+    if (!kpData || !aeData || !dstData || !bzData) {
+      usedProxy = false;
+      connMsg.textContent = 'Proxy unavailable — trying direct NOAA...';
+      const [kpD, aeD, dstD, bzD, swD] = await Promise.allSettled([
+        fetchWithRetry(NOAA_DIRECT.kp), fetchWithRetry(NOAA_DIRECT.ae),
+        fetchWithRetry(NOAA_DIRECT.dst), fetchWithRetry(NOAA_DIRECT.bz),
+        fetchWithRetry(NOAA_DIRECT.solarwind)
+      ]);
+      if (!kpData && kpD.status === 'fulfilled') kpData = await kpD.value.json();
+      if (!aeData && aeD.status === 'fulfilled') aeData = await aeD.value.json();
+      if (!dstData && dstD.status === 'fulfilled') dstData = await dstD.value.json();
+      if (!bzData && bzD.status === 'fulfilled') bzData = await bzD.value.json();
+      if (!swData && swD.status === 'fulfilled') swData = await swD.value.json();
+    }
+  } catch (e) {
+    usedProxy = false;
+    console.warn('NOAA fetch error:', e);
+  }
+
+  try { if (kpData && kpData.length > 0) { const latest = kpData[kpData.length - 1]; spaceWeather.kp = parseFloat(latest.kp ?? latest[1] ?? 2.0); } } catch (e) {}
+  try { if (aeData && aeData.length > 0) { const latest = aeData[aeData.length - 1]; spaceWeather.ae = parseInt(latest.ae ?? latest[1] ?? Math.round(spaceWeather.kp * 25)); } else { spaceWeather.ae = Math.round(spaceWeather.kp * 25); } } catch (e) { spaceWeather.ae = Math.round(spaceWeather.kp * 25); }
+  try { if (dstData && dstData.length > 0) { const latest = dstData[dstData.length - 1]; spaceWeather.dst = parseInt(latest.dst ?? latest[1] ?? 0); } } catch (e) {}
+  try { if (bzData && bzData.length > 0) { const latest = bzData[bzData.length - 1]; spaceWeather.bz = parseFloat(latest.bz_gsm ?? latest[3] ?? 0); spaceWeather.by = parseFloat(latest.by_gsm ?? latest[2] ?? 0); spaceWeather.bx = parseFloat(latest.bx_gsm ?? latest[1] ?? 0); } } catch (e) {}
+  try { if (swData && swData.length > 0) { const latest = swData[swData.length - 1]; spaceWeather.swSpeed = parseFloat(latest.speed ?? latest[1] ?? 400); spaceWeather.swDensity = parseFloat(latest.density ?? latest[2] ?? 5); } } catch (e) {}
+
+  spaceWeather.connected = !!(kpData || dstData || swData);
+  spaceWeather.lastUpdate = new Date().toISOString();
+
+  if (Math.abs(spaceWeather.bz) > 3) spaceWeather.lppMethod = 'Larsen IMF';
+  else if (Math.abs(spaceWeather.dst) > 20 || spaceWeather.ae > 100) spaceWeather.lppMethod = "O'Brien-Moldwin";
+  else spaceWeather.lppMethod = 'Carpenter-Anderson';
+
+  updateUI();
+
+  if (spaceWeather.connected) {
+    dataStatus.textContent = (usedProxy ? 'Live (proxy)' : 'Live (direct)') + ' — ' + new Date().toLocaleTimeString();
+    dataStatus.style.color = '#448844';
+    connMsg.textContent = 'NOAA link established.';
+    setTimeout(() => connStatus.classList.remove('visible'), 1500);
+  } else {
+    dataStatus.textContent = 'Offline — using defaults (retry ' + dataFetchAttempts + '/' + MAX_FETCH_ATTEMPTS + ')';
+    dataStatus.style.color = '#884444';
+    connMsg.textContent = 'NOAA offline — using default values.';
+    if (dataFetchAttempts >= MAX_FETCH_ATTEMPTS) {
+      setTimeout(() => connStatus.classList.remove('visible'), 2000);
+    } else {
+      setTimeout(fetchNOAAData, 5000);
+    }
+  }
+  loadingEl.classList.add('hidden');
+}
+
+function updateUI() {
+  valKp.textContent = spaceWeather.kp.toFixed(1);
+  valAe.textContent = spaceWeather.ae;
+  valDst.textContent = spaceWeather.dst;
+  valBz.textContent = spaceWeather.bz.toFixed(1);
+  valPp.textContent = 'L=' + plasmapauseL().toFixed(2);
+  valLppMethod.textContent = spaceWeather.lppMethod;
+  valPhi.textContent = '𝔐=' + PHI.toFixed(6);
+
+  const toroidalAmp = 15 * (spaceWeather.swSpeed / 400) * (spaceWeather.kp / 2);
+  const tpRatio = 10 * (spaceWeather.swDensity / 5);
+  valToroidal.textContent = toroidalAmp.toFixed(1);
+  valTpRatio.textContent = tpRatio.toFixed(1) + ':1';
+  valSwSpeed.textContent = spaceWeather.swSpeed.toFixed(0) + ' km/s';
+  valSwDensity.textContent = spaceWeather.swDensity.toFixed(1) + ' cm⁻³';
+
+  valKp.classList.toggle('alert', spaceWeather.kp >= 5);
+  valDst.classList.toggle('alert', spaceWeather.dst < -50);
+  valBz.classList.toggle('alert', spaceWeather.bz < -5);
+
+  const lpp = plasmapauseL();
+  const densityStatus = lpp < 3.0 ? 'STORM' : lpp < 4.5 ? 'ACTIVE' : 'QUIET';
+  scalarText.textContent = 'Scalar Density: L=' + lpp.toFixed(2) + ' | ' + densityStatus + ' | 𝔐=' + PHI.toFixed(4);
+}
+
+function obrienMoldwinLpp() {
+  return clamp(5.39 - 0.382 * spaceWeather.kp - 0.001 * spaceWeather.ae - 0.005 * Math.max(0, -spaceWeather.dst), 2.0, 8.0);
+}
+function larsenLpp() {
+  const clockAngle = Math.atan2(spaceWeather.by, spaceWeather.bz);
+  const phi = Math.sqrt(spaceWeather.by * spaceWeather.by + spaceWeather.bz * spaceWeather.bz);
+  return clamp(5.2 - 0.3 * spaceWeather.kp - 0.15 * phi * Math.cos(clockAngle) - 0.05 * Math.max(0, -spaceWeather.dst), 2.0, 8.0);
+}
+function carpenterAndersonLpp() {
+  return clamp(5.6 - 0.46 * spaceWeather.kp, 2.0, 8.0);
+}
+function plasmapauseL() {
+  if (!spaceWeather.connected) return carpenterAndersonLpp();
+  if (Math.abs(spaceWeather.bz) > 2 && spaceWeather.connected) return larsenLpp();
+  if (Math.abs(spaceWeather.dst) > 20 || spaceWeather.ae > 100) return obrienMoldwinLpp();
+  return carpenterAndersonLpp();
+}
+
+const stars_arr = [];
+for (let i = 0; i < 300; i++) {
+  stars_arr.push({
+    x: (prng(i * 2) - 0.5),
+    y: (prng(i * 2 + 1) - 0.5),
+    size: prng(i * 3) * 1.5 + 0.5,
+    twinkle: prng(i * 5) * Math.PI * 2
+  });
+}
+
+function drawStarsField(alpha, parallax) {
+  stars_arr.forEach(s => {
+    const tw = Math.sin(t * 2 + s.twinkle) * 0.3 + 0.7;
+    const px = w * (0.5 + s.x * 1.5 + parallax * s.x * 0.3);
+    const py = h * (0.5 + s.y * 1.5 + parallax * s.y * 0.3);
+    ctx.globalAlpha = alpha * tw * 0.8;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(px, py, s.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function drawSymmetricDipoleLines(cx, cy, scale, alpha, numLines, color, energyFlow) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.globalAlpha = alpha;
+  const poleDist = scale * 0.6;
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(0, -poleDist, scale * 0.06, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(0, poleDist, scale * 0.06, 0, Math.PI * 2); ctx.fill();
+
+  for (let i = 0; i < numLines; i++) {
+    const theta0 = (i / numLines) * Math.PI * 0.48 + 0.02;
+    const loopR = scale * (0.5 + 0.8 * Math.sin(theta0 * Math.PI));
+    for (let side of [1, -1]) {
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 0.6;
+      for (let step = 0; step <= 100; step++) {
+        const frac = step / 100;
+        const angle = frac * Math.PI * 2 - Math.PI / 2;
+        const lx = side * loopR * Math.cos(angle) * Math.sin(theta0 * Math.PI);
+        const ly = loopR * Math.sin(angle);
+        if (step === 0) ctx.moveTo(lx, ly); else ctx.lineTo(lx, ly);
+      }
+      ctx.stroke();
+    }
+  }
+
+  if (energyFlow) {
+    const flowT = t * 1.5;
+    for (let i = 0; i < numLines; i++) {
+      const theta0 = (i / numLines) * Math.PI * 0.48 + 0.02;
+      const loopR = scale * (0.5 + 0.8 * Math.sin(theta0 * Math.PI));
+      const arrowPos = (flowT + i * 0.7) % 1;
+      const angle = arrowPos * Math.PI * 2 - Math.PI / 2;
+      for (let side of [-1, 1]) {
+        const ax = side * loopR * Math.cos(angle) * Math.sin(theta0 * Math.PI);
+        const ay = loopR * Math.sin(angle);
+        const nextAngle = angle + 0.12;
+        const nx = side * loopR * Math.cos(nextAngle) * Math.sin(theta0 * Math.PI);
+        const ny = loopR * Math.sin(nextAngle);
+        ctx.strokeStyle = 'rgba(255,200,50,' + (alpha * 0.7) + ')';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(nx, ny); ctx.stroke();
+        const ang = Math.atan2(ny - ay, nx - ax);
+        const ah = 4;
+        ctx.beginPath(); ctx.moveTo(nx, ny);
+        ctx.lineTo(nx - ah * Math.cos(ang - 0.5), ny - ah * Math.sin(ang - 0.5));
+        ctx.lineTo(nx - ah * Math.cos(ang + 0.5), ny - ah * Math.sin(ang + 0.5));
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(255,200,50,' + (alpha * 0.7) + ')';
+        ctx.fill();
+      }
+    }
+  }
+  ctx.restore();
+}
+
+function drawTorusPlasmasphere(cx, cy, scale, alpha, tiltAngle) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  if (STAGE.tilted) ctx.rotate(tiltAngle);
+
+  const majorR = scale * 0.9;
+  const minorR = scale * 0.35;
+  const segs = 48;
+  const rings = 16;
+
+  ctx.strokeStyle = 'rgba(100,150,255,0.35)';
+  ctx.lineWidth = 0.6;
+  for (let i = 0; i < segs; i++) {
+    const theta = (i / segs) * Math.PI * 2;
+    ctx.beginPath();
+    for (let j = 0; j <= rings; j++) {
+      const phi = (j / rings) * Math.PI * 2;
+      const r = majorR + minorR * Math.cos(phi);
+      const x = r * Math.cos(theta);
+      const y = minorR * Math.sin(phi) * 0.4;
+      const z = r * Math.sin(theta);
+      const persp = 1 + z / (scale * 3);
+      if (j === 0) ctx.moveTo(x / persp, y / persp);
+      else ctx.lineTo(x / persp, y / persp);
+    }
+    ctx.stroke();
+  }
+
+  for (let j = 0; j < rings; j++) {
+    const phi = (j / rings) * Math.PI * 2;
+    ctx.beginPath();
+    for (let i = 0; i <= segs; i++) {
+      const theta = (i / segs) * Math.PI * 2;
+      const r = majorR + minorR * Math.cos(phi);
+      const x = r * Math.cos(theta);
+      const y = minorR * Math.sin(phi) * 0.4;
+      const z = r * Math.sin(theta);
+      const persp = 1 + z / (scale * 3);
+      if (i === 0) ctx.moveTo(x / persp, y / persp);
+      else ctx.lineTo(x / persp, y / persp);
+    }
+    ctx.stroke();
+  }
+
+  const grad = ctx.createRadialGradient(0, 0, majorR - minorR, 0, 0, majorR + minorR);
+  grad.addColorStop(0, 'rgba(50,80,180,0.08)');
+  grad.addColorStop(0.3, 'rgba(80,120,220,0.25)');
+  grad.addColorStop(0.5, 'rgba(100,150,255,0.35)');
+  grad.addColorStop(0.7, 'rgba(80,120,220,0.25)');
+  grad.addColorStop(1, 'rgba(50,80,180,0.08)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, majorR + minorR, (majorR + minorR) * 0.4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(200,160,78,0.4)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath(); ctx.moveTo(0, -minorR * 0.5); ctx.lineTo(0, -scale * 2.2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, minorR * 0.5); ctx.lineTo(0, scale * 2.2); ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = 'rgba(200,160,78,0.7)';
+  ctx.beginPath(); ctx.arc(0, -scale * 2.2, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(0, scale * 2.2, 4, 0, Math.PI * 2); ctx.fill();
+
+  const stratT = t * 0.8;
+  for (let i = 0; i < 6; i++) {
+    const angle = (i / 6) * Math.PI * 2 + stratT;
+    const sx = Math.cos(angle) * majorR;
+    const sy = Math.sin(angle) * majorR * 0.4;
+    const arrowLen = minorR * 0.6 * (0.7 + 0.3 * Math.sin(stratT + i));
+    ctx.strokeStyle = 'rgba(100,255,150,0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy - arrowLen * 0.5);
+    ctx.lineTo(sx, sy + arrowLen * 0.5);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(sx - 3, sy + arrowLen * 0.5 - 4);
+    ctx.lineTo(sx, sy + arrowLen * 0.5);
+    ctx.lineTo(sx + 3, sy + arrowLen * 0.5 - 4);
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = 'rgba(200,160,78,0.5)';
+  ctx.font = '8px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('T/P ≈ 10', 0, -scale * 2.6);
+
+  if (STAGE.solarWind) {
+    const rotT = t * 0.5;
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2 + rotT;
+      const rx = majorR * Math.cos(angle);
+      const ry = majorR * Math.sin(angle) * 0.4;
+      const tx = rx + 8 * Math.cos(angle + Math.PI / 2);
+      const ty = ry + 8 * Math.sin(angle + Math.PI / 2) * 0.4;
+      ctx.strokeStyle = 'rgba(100,255,150,0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(tx, ty); ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawTiltedDipoleField(cx, cy, scale, alpha, tiltAngle, numLines, color) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(tiltAngle);
+  ctx.globalAlpha = alpha;
+  drawSymmetricDipoleLines(0, 0, scale * 1.5, 1.0, numLines, color, false);
+  ctx.restore();
+}
+
+function drawSolarWindEffect(cx, cy, scale, alpha, pressure) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.globalAlpha = alpha;
+  const compression = 1 - pressure * 0.3;
+  ctx.strokeStyle = 'rgba(255,100,50,0.3)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(scale * 0.3, 0, scale * compression, scale * 0.8, 0, -Math.PI / 2, Math.PI / 2);
+  ctx.stroke();
+  const elongation = 1 + pressure * 0.5;
+  ctx.beginPath();
+  ctx.moveTo(0, -scale * 0.6);
+  ctx.lineTo(-scale * elongation, -scale * 0.3);
+  ctx.lineTo(-scale * elongation, scale * 0.3);
+  ctx.lineTo(0, scale * 0.6);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawEarthBody(cx, cy, scale, alpha) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = "#1a3a6a";
+  ctx.beginPath(); ctx.arc(0, 0, scale * 0.18, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#4488ff";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(100,150,255,0.25)';
+  ctx.lineWidth = 0.5;
+  for (let lat = -60; lat <= 60; lat += 30) {
+    const r = scale * 0.18 * Math.cos(lat * Math.PI / 180);
+    const y = scale * 0.18 * Math.sin(lat * Math.PI / 180);
+    ctx.beginPath(); ctx.ellipse(0, y, r, r * 0.3, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(0, -scale * 0.22); ctx.lineTo(0, scale * 0.22); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+function drawScene0_void(u) {
+  ctx.save(); ctx.translate(w / 2, h / 2);
+  const R = lerp(120, 60, u); const eggAlpha = 1 - u * 0.5;
+  ctx.globalAlpha = eggAlpha;
+  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, R);
+  grad.addColorStop(0, 'rgba(200,160,78,0.3)'); grad.addColorStop(0.5, 'rgba(100,80,40,0.1)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function drawScene1_mitosis(u) {
+  ctx.save(); ctx.translate(w / 2, h / 2); const split = u; const offset = lerp(0, 50, split);
+  [-1, 1].forEach(side => {
+    ctx.globalAlpha = 0.5 + split * 0.5;
+    const grad = ctx.createRadialGradient(side * offset, 0, 0, side * offset, 0, 80);
+    grad.addColorStop(0, 'rgba(200,160,78,0.4)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(side * offset, 0, 80, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.restore();
+}
+
+function drawScene2_emergence(u) {
+  ctx.save(); ctx.translate(w / 2, h / 2);
+  const scale = lerp(80, 160, u); const alpha = lerp(0.3, 1.0, u);
+  drawSymmetricDipoleLines(0, 0, scale * 1.5, alpha * 0.7, 20, "#4488ff", true);
+  const tilt = STAGE.tilted ? GEOMAGNETIC_TILT * Math.sin(t * 0.1) : 0;
+  drawTorusPlasmasphere(0, 0, scale * 0.85, alpha, tilt);
+  drawEarthBody(0, 0, scale, alpha);
+  if (u > 0.5) {
+    ctx.fillStyle = 'rgba(200,160,78,' + ((u - 0.5) / 0.5 * 0.8) + ')';
+    ctx.font = "10px monospace"; ctx.textAlign = "center";
+    ctx.fillText("⊕ EARTH", 0, scale * 0.32);
+    ctx.fillText("PLASMASPHERE", 0, -scale * 0.6);
+    ctx.fillText("MAGNETIC DIPOLE", 0, -scale * 1.6);
+  }
+  ctx.globalAlpha = 1; ctx.restore();
+}
+
+function drawScene3_decay(u) {
+  ctx.save(); ctx.translate(w / 2, h / 2);
+  const scale = lerp(100, 180, u); const alpha = lerp(0.4, 1.0, u);
+  const tilt = GEOMAGNETIC_TILT * (0.5 + 0.5 * Math.sin(t * 0.08));
+  drawTiltedDipoleField(0, 0, scale * 1.5, alpha * 0.7, tilt, 20, "#4488ff");
+  drawTorusPlasmasphere(0, 0, scale * 0.85, alpha, tilt);
+  if (STAGE.solarWind) {
+    const pressure = clamp((spaceWeather.swSpeed - 300) / 500, 0, 1);
+    drawSolarWindEffect(0, 0, scale, alpha * 0.5, pressure);
+  }
+  drawEarthBody(0, 0, scale, alpha);
+  const heartScale = lerp(0.8, 1.2, u);
+  ctx.strokeStyle = 'rgba(255,51,102,' + lerp(0.3, 0.7, u) + ')'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i <= 100; i++) { const a = (i / 100) * Math.PI * 2; const r = heartScale * 50 * (1 - Math.sin(a)); const x = r * Math.cos(a); const y = -r * Math.sin(a) * 0.8; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+  ctx.closePath(); ctx.stroke();
+  ctx.globalAlpha = 1; ctx.restore();
+}
+
+function drawScene4_integration(u) {
+  ctx.save(); ctx.translate(w / 2, h / 2);
+  const scale = lerp(120, 220, u); const alpha = lerp(0.5, 1.0, u);
+  drawSymmetricDipoleLines(0, 0, scale, alpha * 0.6, 16, "#ff8800", true);
+  drawSymmetricDipoleLines(0, 0, scale * 0.6, alpha * 0.3, 10, "#c8a04e", false);
+  drawSymmetricDipoleLines(0, 0, scale * 1.3, alpha * 0.2, 8, "#66ccff", false);
+  const tilt = STAGE.tilted ? GEOMAGNETIC_TILT * Math.sin(t * 0.1) : 0;
+  drawTorusPlasmasphere(0, 0, scale * 0.8, alpha, tilt);
+  if (STAGE.solarWind) {
+    const pressure = clamp((spaceWeather.swSpeed - 300) / 500, 0, 1);
+    drawSolarWindEffect(0, 0, scale, alpha * 0.4, pressure);
+  }
+  drawEarthBody(0, 0, scale, alpha);
+  const scales = [{ r: 25, color: "#66ccff", label: "Atom" }, { r: 55, color: "#ff3366", label: "Cell" }, { r: 95, color: "#33ff99", label: "Earth" }, { r: 150, color: "#c8a04e", label: "Magnetosphere" }];
+  ctx.font = "11px sans-serif"; ctx.textAlign = "center";
+  scales.forEach(s => { ctx.strokeStyle = s.color; ctx.beginPath(); ctx.arc(0, 0, s.r, 0, Math.PI * 2); ctx.stroke(); ctx.fillStyle = s.color; ctx.fillText(s.label, 0, -s.r - 10); });
+  const dataRingR = scale + 35;
+  ctx.strokeStyle = 'rgba(200,160,78,' + (alpha * 0.25) + ')'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.arc(0, 0, dataRingR, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(200,160,78,' + (alpha * 0.6) + ')'; ctx.font = "9px monospace";
+  const liveText = 'Kp=' + spaceWeather.kp.toFixed(1) + ' AE=' + spaceWeather.ae + ' Dst=' + spaceWeather.dst + ' Bz=' + spaceWeather.bz.toFixed(1) + ' SW=' + spaceWeather.swSpeed.toFixed(0);
+  for (let i = 0; i < liveText.length; i++) { const angle = (i / liveText.length) * Math.PI * 2 - Math.PI / 2 + t * 0.08; ctx.save(); ctx.translate(Math.cos(angle) * dataRingR, Math.sin(angle) * dataRingR); ctx.rotate(angle + Math.PI / 2); ctx.fillText(liveText[i], 0, 0); ctx.restore(); }
+  ctx.fillStyle = "rgba(255,255,255,0.25)"; ctx.font = "9px monospace";
+  const text = "AS ABOVE · SO BELOW · 𝔐 = " + PHI.toFixed(6);
+  for (let i = 0; i < text.length; i++) { const angle = (i / text.length) * Math.PI * 2 - Math.PI / 2 + t * 0.12; ctx.save(); ctx.translate(Math.cos(angle) * (scale + 60), Math.sin(angle) * (scale + 60)); ctx.rotate(angle + Math.PI / 2); ctx.fillText(text[i], 0, 0); ctx.restore(); }
+  ctx.globalAlpha = 1; ctx.restore();
+}
+
+function getPhaseIndex(cycleT) { if (cycleT < 0.15) return 0; if (cycleT < 0.30) return 1; if (cycleT < 0.55) return 2; if (cycleT < 0.80) return 3; return 4; }
+
+function renderFrame(timestamp) {
+  if (lastFrameTime) { const delta = timestamp - lastFrameTime; frameCount++; if (frameCount % 30 === 0) { fps = Math.round(1000 / delta); fpsText.textContent = fps + ' fps'; } }
+  lastFrameTime = timestamp;
+  ctx.fillStyle = "#000"; ctx.fillRect(0, 0, w, h);
+  const cycleT = auto ? ((t * 0.05) % 1) : (manualT / 1000);
+  drawStarsField(1, Math.sin(cycleT * Math.PI * 2) * 0.3);
+  const phaseIdx = getPhaseIndex(cycleT); const phase = phases[phaseIdx];
+  titleEl.textContent = phase.name; phaseEl.innerHTML = phase.sub + "<br>cycle position: " + (cycleT * 100).toFixed(1) + "%";
+  phases.forEach((p, i) => { const dot = document.getElementById('dot-' + i); if (dot) dot.classList.toggle('active', Math.abs(cycleT - p.t) < 0.08); });
+  let w0, w1, w2, w3, w4;
+  if (view === 'cosmic') { w0 = smoothstep(0.0, 0.15, cycleT) * (1 - smoothstep(0.15, 0.25, cycleT)); w1 = smoothstep(0.15, 0.25, cycleT) * (1 - smoothstep(0.30, 0.40, cycleT)); w2 = smoothstep(0.30, 0.40, cycleT) * (1 - smoothstep(0.55, 0.65, cycleT)); w3 = smoothstep(0.55, 0.65, cycleT) * (1 - smoothstep(0.80, 0.90, cycleT)); w4 = smoothstep(0.80, 0.90, cycleT); }
+  else if (view === 'plasma') { w0 = 0; w1 = smoothstep(0.15, 0.25, cycleT) * (1 - smoothstep(0.30, 0.40, cycleT)) * 0.3; w2 = smoothstep(0.30, 0.40, cycleT) * (1 - smoothstep(0.55, 0.65, cycleT)); w3 = smoothstep(0.55, 0.65, cycleT) * (1 - smoothstep(0.80, 0.90, cycleT)) * 0.3; w4 = smoothstep(0.80, 0.90, cycleT); }
+  else { w0 = smoothstep(0.0, 0.15, cycleT) * (1 - smoothstep(0.15, 0.25, cycleT)); w1 = smoothstep(0.15, 0.25, cycleT) * (1 - smoothstep(0.30, 0.40, cycleT)); w2 = smoothstep(0.30, 0.40, cycleT) * (1 - smoothstep(0.55, 0.65, cycleT)); w3 = smoothstep(0.55, 0.65, cycleT) * (1 - smoothstep(0.80, 0.90, cycleT)); w4 = smoothstep(0.80, 0.90, cycleT) * (1 - smoothstep(0.95, 1.0, cycleT)); }
+  const total = w0 + w1 + w2 + w3 + w4;
+  const nw0 = w0 / (total || 1), nw1 = w1 / (total || 1), nw2 = w2 / (total || 1), nw3 = w3 / (total || 1), nw4 = w4 / (total || 1);
+  ctx.globalAlpha = nw0; if (nw0 > 0.01) drawScene0_void(cycleT / 0.25);
+  ctx.globalAlpha = nw1; if (nw1 > 0.01) drawScene1_mitosis((cycleT - 0.15) / 0.25);
+  ctx.globalAlpha = nw2; if (nw2 > 0.01) drawScene2_emergence((cycleT - 0.40) / 0.25);
+  ctx.globalAlpha = nw3; if (nw3 > 0.01) drawScene3_decay((cycleT - 0.65) / 0.25);
+  ctx.globalAlpha = nw4; if (nw4 > 0.01) drawScene4_integration((cycleT - 0.90) / 0.10);
+  ctx.globalAlpha = 1;
+  if (auto) slider.value = Math.round(cycleT * 1000);
+}
+
+function animationLoop(timestamp) { t += 0.016; renderFrame(timestamp); requestAnimationFrame(animationLoop); }
+
+btnPlay.addEventListener('click', () => { auto = !auto; btnPlay.textContent = auto ? "⏸ pause" : "▶ play"; });
+slider.addEventListener('input', () => { auto = false; manualT = parseInt(slider.value); btnPlay.textContent = "▶ play"; });
+btnPrev.addEventListener('click', () => { auto = false; manualT = Math.max(0, manualT - 100); slider.value = manualT; btnPlay.textContent = "▶ play"; });
+btnNext.addEventListener('click', () => { auto = false; manualT = Math.min(1000, manualT + 100); slider.value = manualT; btnPlay.textContent = "▶ play"; });
+viewMode.addEventListener('change', (e) => { view = e.target.value; });
+phases.forEach((p, i) => { const dot = document.getElementById('dot-' + i); if (dot) { dot.style.cursor = 'pointer'; dot.addEventListener('click', () => { auto = false; manualT = Math.round(p.t * 1000); slider.value = manualT; btnPlay.textContent = "▶ play"; }); } });
+document.addEventListener('keydown', (e) => { if (e.code === 'Space') { e.preventDefault(); btnPlay.click(); } else if (e.code === 'ArrowLeft') { btnPrev.click(); } else if (e.code === 'ArrowRight') { btnNext.click(); } });
+
+requestAnimationFrame(animationLoop);
+fetchNOAAData();
+setInterval(fetchNOAAData, 300000);
+
+console.log('%c[Scalar-Plasma Cycle v4.0]', 'color: #c8a04e; font-weight: bold;');
+console.log('%cMacachor Absolute Scalar Lock: 𝔐 = ' + PHI, 'color: #c8a04e;');
+console.log('%cNOAA SWPC live data: ACTIVE', 'color: #4ec88a;');
+</script>
+
+</body>
+</html>
