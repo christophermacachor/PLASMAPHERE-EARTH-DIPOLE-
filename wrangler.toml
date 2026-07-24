@@ -2,3 +2,4 @@ name = "plasmasphere-earth-dipole"
 compatibility_date = "2026-07-24"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "./"
+CLOUDFLARE_ACCOUNT_ID = 743b8c88ff9d9d1a45b1d7a09cf786d0
