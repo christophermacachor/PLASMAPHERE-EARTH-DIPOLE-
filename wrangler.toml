@@ -1,7 +1,4 @@
-name = "noaa-proxy"
-main = "noaa-cors-proxy.js"
-compatibility_date = "2026-07-23"
-
-routes = [
-  { pattern = "noaa.macachor.org/*", custom_domain = true }
-]
+name = "plasmasphere-earth-dipole"
+compatibility_date = "2026-07-24"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "./"
