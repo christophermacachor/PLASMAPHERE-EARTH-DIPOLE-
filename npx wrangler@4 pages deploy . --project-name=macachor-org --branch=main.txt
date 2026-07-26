@@ -1,0 +1,1 @@
+npx wrangler@4 pages deploy . --project-name=macachor-org --branch=main
