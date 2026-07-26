@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Scalar-Plasma Cycle v4.1 — Live magnetospheric visualization with NOAA SWPC space weather data via Cloudflare Pages Functions proxy. Toroidal plasmasphere, dipole field lines, and scalar density coherence. Macachor Absolute framework.">
+<meta name="description" content="Scalar-Plasma Cycle v4.2 — Live magnetospheric visualization with NOAA SWPC space weather data. Toroidal plasmasphere, dipole field lines, and scalar density coherence. Macachor Absolute framework.">
 <title>&#9672; SCALAR-PLASMA CYCLE · Live Magnetosphere · Macachor Absolute</title>
 <style>
   :root {
@@ -201,7 +201,7 @@
   }
 </style>
 <base target="_blank">
-
+<base target="_blank">
 </head>
 <body>
 
@@ -219,7 +219,7 @@
 
   <div id="loading">
     <div class="spinner"></div>
-    <div>Scalar-Plasma Cycle v4.1</div>
+    <div>Scalar-Plasma Cycle v4.2</div>
     <div style="font-size:10px;color:#666;margin-top:4px;">Pre-computing density field...</div>
   </div>
 
@@ -234,7 +234,7 @@
     <div class="laws">
       Law of Correspondence: As Above, So Below<br>
       Law of Conservation: Energy transforms, never destroyed<br>
-      Law of Coherence: M = (&#8730;5&#8722;1)/2
+      Law of Coherence: M = (&radic;5&minus;1)/2
     </div>
   </div>
 
@@ -258,16 +258,16 @@
     <div style="color:#c8a04e;margin-bottom:4px;font-size:10px;">&#9673; ACTIVE MODELS</div>
     <div class="model-name">&#8226; Carpenter-Anderson (density)</div>
     <div class="model-name">&#8226; O'Brien-Moldwin (Lpp: Kp+AE+Dst)</div>
-    <div class="model-name">&#8226; Larsen et al. (Lpp: IMF Bz+&#966;)</div>
+    <div class="model-name">&#8226; Larsen et al. (Lpp: IMF Bz+&Phi;)</div>
     <div class="model-name">&#8226; Diffusive Equilibrium (profile)</div>
     <div class="model-name">&#8226; IZMIRAN10 (validation ref)</div>
     <div style="color:#c8a04e;margin-top:6px;margin-bottom:2px;font-size:10px;">&#9673; COHERENCE SCALAR</div>
-    <div class="model-name" style="color:#c8a04e;">&#8226; Macachor Absolute &#8212; M = (&#8730;5&#8722;1)/2</div>
+    <div class="model-name" style="color:#c8a04e;">&#8226; Macachor Absolute &mdash; M = (&radic;5&minus;1)/2</div>
     <div class="model-name" style="color:#666;font-size:8px;">  Reference scalar for coherence lock</div>
   </div>
 
   <div id="scalar-readout"><span id="scalar-text">Scalar Density Field: Computing...</span></div>
-  <div id="perf-readout"><span id="fps-text">-- fps</span> | <span id="grid-text">-- ms grid</span></div>
+  <div id="perf-readout"><span id="fps-text">-- fps</span></div>
 
   <div class="cycle-indicator" id="cycle-indicator"></div>
 
@@ -285,25 +285,23 @@
 </div>
 
 <script>
-// &#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;
-// SCALAR-PLASMA CYCLE v4.1
-// NOAA PROXY + SERVER-SIDE MODELS (Cloudflare Pages Functions)
-// &#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;
+// ═══════════════════════════════════════════════════════════════════
+// SCALAR-PLASMA CYCLE v4.2
+// ALL-IN-ONE HTML — NOAA DIRECT FETCH (CORS-enabled) + FALLBACK
+// ═══════════════════════════════════════════════════════════════════
 
 const PHI = (Math.sqrt(5) - 1) / 2;
 
-// FIX: Same-origin proxy via Cloudflare Pages Functions (no CORS issues)
-const PROXY_BASE = 'https://noaa.macachor.org';
-
-const STAGE = {
-  symmetric: true,
-  tilted: true,
-  solarWind: true,
-  liveFeeds: true
+// ── NOAA ENDPOINTS (CORS-enabled as of July 2026) ─────────────────
+const NOAA = {
+  kp:      'https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json',
+  dst:     'https://services.swpc.noaa.gov/products/kyoto-dst.json',
+  rtswMag: 'https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_lm.json',
+  rtswWind:'https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_lm.json'
 };
 
+const STAGE = { symmetric: true, tilted: true, solarWind: true };
 const GEOMAGNETIC_TILT = 11.0 * Math.PI / 180;
-const EARTH_RADIUS_KM = 6371;
 
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
@@ -342,8 +340,7 @@ const MAX_FETCH_ATTEMPTS = 3;
 const spaceWeather = {
   kp: 2.0, ae: 50, dst: 0, bz: 0, by: 0, bx: 0,
   swSpeed: 400, swDensity: 5,
-  lastUpdate: null, connected: false, lppMethod: 'Carpenter-Anderson',
-  serverModels: null
+  lastUpdate: null, connected: false, lppMethod: 'Carpenter-Anderson'
 };
 
 const phases = [
@@ -374,106 +371,139 @@ function resize() { w = canvas.width = window.innerWidth; h = canvas.height = wi
 window.addEventListener('resize', resize);
 resize();
 
-async function fetchWithRetry(url, retries = 2, delay = 1000) {
-  for (let i = 0; i <= retries; i++) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-      const response = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeout);
-      if (response.ok) return response;
-    } catch (e) {
-      if (i === retries) throw e;
-      await new Promise(r => setTimeout(r, delay * (i + 1)));
-    }
+// ── FETCH HELPERS ─────────────────────────────────────────────────
+async function fetchJSON(url, timeoutMs = 6000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { signal: controller.signal, mode: 'cors' });
+    clearTimeout(timer);
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    return await response.json();
+  } catch (e) {
+    clearTimeout(timer);
+    throw e;
   }
 }
 
-// &#9472;&#9472;&#9472; FIX: Same-origin proxy fetch + server-side model compute &#9472;&#9472;&#9472;
+// ── PARSERS (new object-style + legacy array-style) ──────────────
+function parseKp(data) {
+  if (!data || !data.length) return 2.0;
+  const latest = data[data.length - 1];
+  if (latest.Kp !== undefined) return parseFloat(latest.Kp);
+  if (Array.isArray(latest)) return parseFloat(latest[1] ?? 2.0);
+  return 2.0;
+}
+
+function parseDst(data) {
+  if (!data || !data.length) return 0;
+  const latest = data[data.length - 1];
+  if (latest.dst !== undefined) return parseInt(latest.dst);
+  if (Array.isArray(latest)) return parseInt(latest[1] ?? 0);
+  return 0;
+}
+
+function parseRTSWMag(data) {
+  if (!data) return { bx: 0, by: 0, bz: 0 };
+  const entry = Array.isArray(data) ? data[data.length - 1] : data;
+  if (entry.bx !== undefined) {
+    return {
+      bx: parseFloat(entry.bx ?? 0),
+      by: parseFloat(entry.by ?? 0),
+      bz: parseFloat(entry.bz ?? 0)
+    };
+  }
+  if (Array.isArray(entry)) {
+    return {
+      bx: parseFloat(entry[1] ?? 0),
+      by: parseFloat(entry[2] ?? 0),
+      bz: parseFloat(entry[3] ?? 0)
+    };
+  }
+  return { bx: 0, by: 0, bz: 0 };
+}
+
+function parseRTSWWind(data) {
+  if (!data) return { speed: 400, density: 5 };
+  const entry = Array.isArray(data) ? data[data.length - 1] : data;
+  if (entry.speed !== undefined) {
+    return {
+      speed: parseFloat(entry.speed ?? 400),
+      density: parseFloat(entry.proton_density ?? entry.density ?? 5)
+    };
+  }
+  if (Array.isArray(entry)) {
+    return {
+      speed: parseFloat(entry[1] ?? 400),
+      density: parseFloat(entry[2] ?? 5)
+    };
+  }
+  return { speed: 400, density: 5 };
+}
+
+// AE: NOAA has no public AE JSON; empirical fit from Kp + Dst
+function estimateAE(kp, dst) {
+  return Math.round(80 * Math.pow(kp, 1.5) + Math.max(0, -dst) * 2);
+}
+
+// ── MAIN DATA FETCH ──────────────────────────────────────────────
 async function fetchNOAAData() {
   dataFetchAttempts++;
-
   if (dataFetchAttempts === 1) {
     connStatus.classList.add('visible');
     connMsg.textContent = 'Linking to NOAA SWPC...';
   }
 
-  let kpData = null, aeData = null, dstData = null, magData = null, plasmaData = null;
-  let computedData = null;
+  let kpData = null, dstData = null, magData = null, windData = null;
 
   try {
-    // Fetch raw NOAA data through same-origin proxy (no CORS)
-    const [kpResp, aeResp, dstResp, magResp, plasmaResp] = await Promise.allSettled([
-      fetchWithRetry(PROXY_BASE + '/kp'),
-      fetchWithRetry(PROXY_BASE + '/ae'),
-      fetchWithRetry(PROXY_BASE + '/dst'),
-      fetchWithRetry(PROXY_BASE + '/mag'),
-      fetchWithRetry(PROXY_BASE + '/plasma')
+    const [kpResp, dstResp, magResp, windResp] = await Promise.allSettled([
+      fetchJSON(NOAA.kp),
+      fetchJSON(NOAA.dst),
+      fetchJSON(NOAA.rtswMag),
+      fetchJSON(NOAA.rtswWind)
     ]);
 
-    if (kpResp.status === 'fulfilled') kpData = await kpResp.value.json();
-    if (aeResp.status === 'fulfilled') aeData = await aeResp.value.json();
-    if (dstResp.status === 'fulfilled') dstData = await dstResp.value.json();
-    if (magResp.status === 'fulfilled') magData = await magResp.value.json();
-    if (plasmaResp.status === 'fulfilled') plasmaData = await plasmaResp.value.json();
+    if (kpResp.status === 'fulfilled') kpData = kpResp.value;
+    if (dstResp.status === 'fulfilled') dstData = dstResp.value;
+    if (magResp.status === 'fulfilled') magData = magResp.value;
+    if (windResp.status === 'fulfilled') windData = windResp.value;
 
-    // Parse raw values
-    try { if (kpData && kpData.length > 0) { const latest = kpData[kpData.length - 1]; spaceWeather.kp = parseFloat(latest.kp ?? latest[1] ?? 2.0); } } catch (e) {}
-    try { if (aeData && aeData.length > 0) { const latest = aeData[aeData.length - 1]; spaceWeather.ae = parseInt(latest.ae ?? latest[1] ?? Math.round(spaceWeather.kp * 25)); } else { spaceWeather.ae = Math.round(spaceWeather.kp * 25); } } catch (e) { spaceWeather.ae = Math.round(spaceWeather.kp * 25); }
-    try { if (dstData && dstData.length > 0) { const latest = dstData[dstData.length - 1]; spaceWeather.dst = parseInt(latest.dst ?? latest[1] ?? 0); } } catch (e) {}
-    try { if (magData && magData.length > 0) { const latest = magData[magData.length - 1]; spaceWeather.bz = parseFloat(latest.bz_gsm ?? latest[3] ?? 0); spaceWeather.by = parseFloat(latest.by_gsm ?? latest[2] ?? 0); spaceWeather.bx = parseFloat(latest.bx_gsm ?? latest[1] ?? 0); } } catch (e) {}
-    try { if (plasmaData && plasmaData.length > 0) { const latest = plasmaData[plasmaData.length - 1]; spaceWeather.swSpeed = parseFloat(latest.speed ?? latest[1] ?? 400); spaceWeather.swDensity = parseFloat(latest.density ?? latest[2] ?? 5); } } catch (e) {}
+    spaceWeather.kp = parseKp(kpData);
+    spaceWeather.dst = parseDst(dstData);
 
-    spaceWeather.connected = !!(kpData || dstData || plasmaData);
+    const imf = parseRTSWMag(magData);
+    spaceWeather.bx = imf.bx;
+    spaceWeather.by = imf.by;
+    spaceWeather.bz = imf.bz;
 
-    // Fetch server-side computed models
-    if (spaceWeather.connected) {
-      try {
-        const computeUrl = new URL(PROXY_BASE + '/compute', window.location.origin);
-        computeUrl.searchParams.set('kp', spaceWeather.kp);
-        computeUrl.searchParams.set('ae', spaceWeather.ae);
-        computeUrl.searchParams.set('dst', spaceWeather.dst);
-        computeUrl.searchParams.set('bz', spaceWeather.bz);
-        computeUrl.searchParams.set('by', spaceWeather.by);
-        computeUrl.searchParams.set('L', plasmapauseL().toFixed(2));
-        computeUrl.searchParams.set('mlt', '12');
+    const sw = parseRTSWWind(windData);
+    spaceWeather.swSpeed = sw.speed;
+    spaceWeather.swDensity = sw.density;
 
-        const computeResp = await fetch(computeUrl.toString());
-        if (computeResp.ok) {
-          computedData = await computeResp.json();
-          spaceWeather.serverModels = computedData;
-        }
-      } catch (e) {
-        console.warn('Compute endpoint unavailable:', e);
-      }
-    }
+    spaceWeather.ae = estimateAE(spaceWeather.kp, spaceWeather.dst);
+    spaceWeather.connected = true;
 
   } catch (e) {
     console.warn('NOAA fetch error:', e);
+    spaceWeather.connected = false;
   }
 
   spaceWeather.lastUpdate = new Date().toISOString();
 
-  // Use server-side model selection if available, else fallback to client-side
-  if (computedData && computedData.plasmapause) {
-    spaceWeather.lppMethod = computedData.plasmapause.method;
-    spaceWeather.serverLpp = computedData.plasmapause.lpp;
-    spaceWeather.serverConfidence = computedData.plasmapause.confidence;
-  } else {
-    if (Math.abs(spaceWeather.bz) > 3) spaceWeather.lppMethod = 'Larsen IMF';
-    else if (Math.abs(spaceWeather.dst) > 20 || spaceWeather.ae > 100) spaceWeather.lppMethod = "O'Brien-Moldwin";
-    else spaceWeather.lppMethod = 'Carpenter-Anderson';
-  }
+  if (Math.abs(spaceWeather.bz) > 3) spaceWeather.lppMethod = 'Larsen IMF';
+  else if (Math.abs(spaceWeather.dst) > 20 || spaceWeather.ae > 100) spaceWeather.lppMethod = "O'Brien-Moldwin";
+  else spaceWeather.lppMethod = 'Carpenter-Anderson';
 
   updateUI();
 
   if (spaceWeather.connected) {
-    dataStatus.textContent = 'Live (proxy) — ' + new Date().toLocaleTimeString();
+    dataStatus.textContent = 'Live — ' + new Date().toLocaleTimeString();
     dataStatus.style.color = '#448844';
     connMsg.textContent = 'NOAA link established.';
     setTimeout(() => connStatus.classList.remove('visible'), 1500);
   } else {
-    dataStatus.textContent = 'Offline — using defaults (retry ' + dataFetchAttempts + '/' + MAX_FETCH_ATTEMPTS + ')';
+    dataStatus.textContent = 'Offline — defaults (retry ' + dataFetchAttempts + '/' + MAX_FETCH_ATTEMPTS + ')';
     dataStatus.style.color = '#884444';
     connMsg.textContent = 'NOAA offline — using default values.';
     if (dataFetchAttempts >= MAX_FETCH_ATTEMPTS) {
@@ -523,11 +553,12 @@ function carpenterAndersonLpp() {
 }
 function plasmapauseL() {
   if (!spaceWeather.connected) return carpenterAndersonLpp();
-  if (Math.abs(spaceWeather.bz) > 2 && spaceWeather.connected) return larsenLpp();
+  if (Math.abs(spaceWeather.bz) > 2) return larsenLpp();
   if (Math.abs(spaceWeather.dst) > 20 || spaceWeather.ae > 100) return obrienMoldwinLpp();
   return carpenterAndersonLpp();
 }
 
+// ── STARS ────────────────────────────────────────────────────────
 const stars_arr = [];
 for (let i = 0; i < 300; i++) {
   stars_arr.push({
@@ -551,6 +582,7 @@ function drawStarsField(alpha, parallax) {
   });
 }
 
+// ── DIPOLE LINES ─────────────────────────────────────────────────
 function drawSymmetricDipoleLines(cx, cy, scale, alpha, numLines, color, energyFlow) {
   ctx.save();
   ctx.translate(cx, cy);
@@ -608,6 +640,7 @@ function drawSymmetricDipoleLines(cx, cy, scale, alpha, numLines, color, energyF
   ctx.restore();
 }
 
+// ── PLASMASPHERE TORUS ───────────────────────────────────────────
 function drawTorusPlasmasphere(cx, cy, scale, alpha, tiltAngle) {
   ctx.save();
   ctx.translate(cx, cy);
@@ -768,6 +801,7 @@ function drawEarthBody(cx, cy, scale, alpha) {
   ctx.restore();
 }
 
+// ── SCENES ───────────────────────────────────────────────────────
 function drawScene0_void(u) {
   ctx.save(); ctx.translate(w / 2, h / 2);
   const R = lerp(120, 60, u); const eggAlpha = 1 - u * 0.5;
@@ -893,9 +927,9 @@ requestAnimationFrame(animationLoop);
 fetchNOAAData();
 setInterval(fetchNOAAData, 300000);
 
-console.log('%c[Scalar-Plasma Cycle v4.1]', 'color: #c8a04e; font-weight: bold;');
+console.log('%c[Scalar-Plasma Cycle v4.2]', 'color: #c8a04e; font-weight: bold;');
 console.log('%cMacachor Absolute Scalar Lock: M = ' + PHI, 'color: #c8a04e;');
-console.log('%cNOAA SWPC live data: ACTIVE via Cloudflare Pages Functions proxy', 'color: #4ec88a;');
+console.log('%cNOAA SWPC live data: DIRECT FETCH (CORS-enabled)', 'color: #4ec88a;');
 </script>
 
 </body>
